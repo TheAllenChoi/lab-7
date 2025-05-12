@@ -37,7 +37,8 @@ data frame-like object) that will be easy to use for mapping.
 # Read in text file of US state capitals' lat and long
 state_ll <- read_table(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
-  col_names = c("state", "lat", "long"))
+  col_names = c("state", "lat", "long")) |> 
+  filter(state != "US")
 ```
 
 ```{r}
@@ -64,5 +65,32 @@ satellite <- res$content |>
 # Turn satellite into a reasonable dataframe
 satellite_df <- satellite$passes |> 
   as_tibble()
+```
+
+
+## 2.
+
+```{r}
+moon_icon <- makeIcon(
+  iconUrl = "https://media.istockphoto.com/id/1004728748/vector/moon-icon-flat-design.jpg?s=1024x1024&w=is&k=20&c=fYH6eM0A_xymXZ_ZdQ19AHhBPwsQyh4Cz8EMKjYaIlk=",
+  iconWidth = 30,
+  iconHeight = 30
+)
+
+state_ll |> 
+  leaflet() |> 
+  addTiles() |> 
+  addMarkers(
+    lng = state_ll$long,
+    lat = state_ll$lat,
+    icon = moon_icon,
+    popup = paste(state_ll$long,
+                  state_ll$lat,
+                  state_ll$state)
+  )
+
+```
+
+
 ```
 
