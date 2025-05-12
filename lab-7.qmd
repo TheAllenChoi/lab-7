@@ -38,7 +38,20 @@ data frame-like object) that will be easy to use for mapping.
 state_ll <- read_table(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
   col_names = c("state", "lat", "long")) |> 
+<<<<<<< Updated upstream
   filter(state != "US") # Remove the row with China 
+=======
+  filter(state != "US")
+
+state_names <- read_delim(
+  file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_name.txt",
+  delim = "  ",
+  col_names = c("state", "name"),
+)
+
+state_ll <- state_ll |> 
+  left_join(state_names, by = join_by(state == state))
+>>>>>>> Stashed changes
 ```
 
 ```{r}
@@ -157,17 +170,27 @@ moon_icon <- makeIcon(
 state_ll |> 
   leaflet() |> 
   addTiles() |> 
+  addPolylines(
+    lng = state_ll$long,
+    lat = state_ll$lat,
+  ) |> 
   addMarkers(
     lng = state_ll$long,
     lat = state_ll$lat,
     icon = moon_icon,
-    popup = paste(state_ll$long,
-                  state_ll$lat,
-                  state_ll$state)
+    popup = paste0("State Capitol Name: ", " ", state_ll$name, " <br> ",
+                   "All three times: "),
+    label = paste0("State Capitol Name: ", state_ll$name, " <br> ",
+                   "Soonest possible time: ")
   )
 
+
 ```
+```{r}
+a <- GET("https://api.g7vrd.co.uk/v1/satellite-passes/25544/51.45/-2.5833.json?minelevation=70&hours=12")
 
-
+b <- a$content |> 
+  rawToChar() |> 
+  fromJSON()
 ```
 
