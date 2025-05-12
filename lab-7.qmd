@@ -38,16 +38,14 @@ data frame-like object) that will be easy to use for mapping.
 state_ll <- read_table(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
   col_names = c("state", "lat", "long")) |> 
-  filter(state != "US") # Remove the row with China 
+  filter(state != "US") |>  # Remove the row with China
+  filter(state != "AK") # get rid of alaska since ISS doesn't orbit it
 
 state_names <- read_delim(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_name.txt",
   delim = "  ",
   col_names = c("state", "name"),
 )
-
-state_ll <- state_ll |> 
-  left_join(state_names, by = join_by(state == state))
 ```
 
 ```{r}
@@ -96,7 +94,8 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
     # Call the function to get the pass times
     cur_pass_times <- get_pass_times(return_df[i, 2],
                                      return_df[i, 3], minelevation, hours)
-    return_df[i, c(4, 5, 6)] <- cur_pass_times
+    return_df[i, c(4, 5, 6)] <- cur_pass_times[, c(1, 2, 3)]
+    Sys.sleep(1) # get sys sleep so api dont get angry
   }
   
   return(return_df)
@@ -107,9 +106,18 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
 
 ```{r}
 # Try it
-a <- create_passtimes_df(state_ll[c(1), ], state, lat, long, minelevation = 30, hours = 48)
+a <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
 a
 ```
+
+```{r}
+final_dataset <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
+final_dataset <- final_dataset |> 
+  mutate(across(time1:time3, ~as_datetime(.x))) |> 
+  arrange(time1) |> 
+  left_join(state_names, by = join_by(state == state))
+```
+
 
 
 ```{r}
@@ -160,22 +168,27 @@ moon_icon <- makeIcon(
   iconHeight = 30
 )
 
-state_ll |> 
+final_dataset |> 
   leaflet() |> 
   addTiles() |> 
   addPolylines(
-    lng = state_ll$long,
-    lat = state_ll$lat,
+    lng = final_dataset$long,
+    lat = final_dataset$lat,
   ) |> 
   addMarkers(
-    lng = state_ll$long,
-    lat = state_ll$lat,
+    lng = final_dataset$long,
+    lat = final_dataset$lat,
     icon = moon_icon,
-    popup = paste0("State Capitol Name: ", " ", state_ll$name, " <br> ",
-                   "All three times: "),
-    label = paste0("State Capitol Name: ", state_ll$name, " <br> ",
-                   "Soonest possible time: ")
+    popup = paste0("State Capitol Name: ", " ", final_dataset$name, " <br> ",
+                   "All three times: ", " <br> ",
+                   "First Time: <br> ",
+                   final_dataset$time1, " <br> ",
+                   "Second Time: <br> ",
+                   final_dataset$time2, " <br> ",
+                   "Third Time: <br> ",
+                   final_dataset$time3),
+    label = paste0("State Capitol Name: ", " ", final_dataset$name, " <br> ",
+                   "Soonest possible time: ", final_dataset$time1)
   )
-
 
 ```
