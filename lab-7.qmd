@@ -1,0 +1,8 @@
+---
+title: "Lab 7"
+author: "Allen Choi and Hannah Pawig"
+format: html
+embed-resources: true
+editor: source
+---
+
