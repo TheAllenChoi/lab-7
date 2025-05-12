@@ -39,6 +39,15 @@ state_ll <- read_table(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
   col_names = c("state", "lat", "long")) |> 
   filter(state != "US") # Remove the row with China 
+
+state_names <- read_delim(
+  file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_name.txt",
+  delim = "  ",
+  col_names = c("state", "name"),
+)
+
+state_ll <- state_ll |> 
+  left_join(state_names, by = join_by(state == state))
 ```
 
 ```{r}
@@ -54,17 +63,15 @@ get_pass_times <- function(lat, long, minelevation = 30, hours = 48) {
   
   # Check if the request was successful
   if (status_code(res) == 200) {
-    return(content(res))
+    passtimes <- res$content |>
+      rawToChar() |>
+      fromJSON() |>
+      data.frame() |>
+      select(passes.tca)
+    return(t(passtimes$passes.tca))
   } else {
     stop("Error: Unable to retrieve data from the API. Please check the URL or parameters.")
   }
-  passtimes <- res$content |> 
-    rawToChar() |> 
-    fromJSON() |> 
-    data.frame() |> 
-    select(passes.tca) 
-  
-  t(passtimes)
 }
 
 ```
@@ -74,24 +81,22 @@ get_pass_times <- function(lat, long, minelevation = 30, hours = 48) {
 #| label: get-all-passes-fn
 
 create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation = 70, hours = 12) {
+  state <- df |> select({{state_col}})
+  lat <- df |> select({{lat_col}})
+  long <- df |> select({{long_col}})
   # Create an empty dataframe
-  return_df <- data.frame(state = !!enquos(state_col),
-                          lat = !!enquos(lat_col),
-                          long = !!enquos(long_col))
-  
+  return_df <- data.frame(state = state,
+                          lat = lat,
+                          long = long,
+                          time1 = NA,
+                          time2 = NA,
+                          time3 = NA)
   # Loop through each row of the dataframe to request the pass times one row at a time
-  lat <- df[[{{lat_col}}]]
-  long <- df[[{{long_col}}]]
-  for (i in 1:nrow(df)) {
-    # Get the latitude and longitude for the current state capital
-    cur_lat <- lat[i]
-    cur_long <- long[i]
-    
+  for (i in 1:nrow(return_df)) {
     # Call the function to get the pass times
-    cur_passtimes <- get_pass_times(cur_lat, cur_long, minelevation, hours)
-    
-    # Add the pass times to the data frame
-    return_df$pass_times[[i]] <- cur_passtimes
+    cur_pass_times <- get_pass_times(return_df[i, 2],
+                                     return_df[i, 3], minelevation, hours)
+    return_df[i, c(4, 5, 6)] <- cur_pass_times
   }
   
   return(return_df)
@@ -102,7 +107,8 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
 
 ```{r}
 # Try it
-create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
+a <- create_passtimes_df(state_ll[c(1), ], state, lat, long, minelevation = 30, hours = 48)
+a
 ```
 
 
@@ -157,17 +163,19 @@ moon_icon <- makeIcon(
 state_ll |> 
   leaflet() |> 
   addTiles() |> 
+  addPolylines(
+    lng = state_ll$long,
+    lat = state_ll$lat,
+  ) |> 
   addMarkers(
     lng = state_ll$long,
     lat = state_ll$lat,
     icon = moon_icon,
-    popup = paste(state_ll$long,
-                  state_ll$lat,
-                  state_ll$state)
+    popup = paste0("State Capitol Name: ", " ", state_ll$name, " <br> ",
+                   "All three times: "),
+    label = paste0("State Capitol Name: ", state_ll$name, " <br> ",
+                   "Soonest possible time: ")
   )
 
-```
-
 
 ```
-
