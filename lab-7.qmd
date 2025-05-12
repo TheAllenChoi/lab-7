@@ -1,38 +1,68 @@
 ---
-title: "Lab 7"
+title: "Lab 7: Visualizing International Space Station Information via APIs"
 author: "Allen Choi and Hannah Pawig"
 format: html
 embed-resources: true
 editor: source
 ---
 
+
 ```{r}
-library(leaflet)
+#| message: false
+#| echo: false
+#| include: false
+#| label: loading-packages
+
+# Load the required libraries
+library(jsonlite)
+library(httr)
 library(tidyverse)
+library(leaflet)
 ```
-## 2.
+
+
+
+### Pass Times for U.S. State Captials
+
+1. Use the API to get the next **three** predicted pass times for all of the 
+U.S. state capitals. Organize all of this information into a nice data frame (or
+data frame-like object) that will be easy to use for mapping.
+
 
 ```{r}
-moon_icon <- makeIcon(
-  iconUrl = "https://media.istockphoto.com/id/1004728748/vector/moon-icon-flat-design.jpg?s=1024x1024&w=is&k=20&c=fYH6eM0A_xymXZ_ZdQ19AHhBPwsQyh4Cz8EMKjYaIlk=",
-  iconWidth = 30,
-  iconHeight = 30
-)
+#| label: US-state-capital-data
+#| echo: false
+#| message: false
+#| include: false
+# Read in text file of US state capitals' lat and long
+state_ll <- read_table(
+  file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
+  col_names = c("state", "lat", "long"))
+```
 
-state_coord <- read_table("state_capital_coord.txt",
-                          col_names = c("State", "lat", "lng")) |> 
-  filter(State != "US")
-state_coord |> 
-  leaflet() |> 
-  addTiles() |> 
-  addMarkers(
-    lng = state_coord$lng,
-    lat = state_coord$lat,
-    icon = moon_icon,
-    popup = paste(state_coord$lng,
-                  state_coord$lat,
-                  state_coord$State)
-  )
+```{r}
+#| label: API-request
+# get the data from the api
+res <- GET(
+  "https://api.g7vrd.co.uk/v1/satellite-passes/25544/51.45/-2.5833.json?minelevation=70&hours=12")
 
+res
+```
+
+
+```{r}
+#| label: API-
+# convert the json
+satellite <- res$content |> 
+  rawToChar() |> 
+  fromJSON()
+```
+
+
+
+```{r}
+# Turn satellite into a reasonable dataframe
+satellite_df <- satellite$passes |> 
+  as_tibble()
 ```
 
