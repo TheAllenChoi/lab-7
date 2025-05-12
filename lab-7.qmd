@@ -6,3 +6,33 @@ embed-resources: true
 editor: source
 ---
 
+```{r}
+library(leaflet)
+library(tidyverse)
+```
+## 2.
+
+```{r}
+moon_icon <- makeIcon(
+  iconUrl = "https://media.istockphoto.com/id/1004728748/vector/moon-icon-flat-design.jpg?s=1024x1024&w=is&k=20&c=fYH6eM0A_xymXZ_ZdQ19AHhBPwsQyh4Cz8EMKjYaIlk=",
+  iconWidth = 30,
+  iconHeight = 30
+)
+
+state_coord <- read_table("state_capital_coord.txt",
+                          col_names = c("State", "lat", "lng")) |> 
+  filter(State != "US")
+state_coord |> 
+  leaflet() |> 
+  addTiles() |> 
+  addMarkers(
+    lng = state_coord$lng,
+    lat = state_coord$lat,
+    icon = moon_icon,
+    popup = paste(state_coord$lng,
+                  state_coord$lat,
+                  state_coord$State)
+  )
+
+```
+
