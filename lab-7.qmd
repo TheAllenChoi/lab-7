@@ -38,34 +38,111 @@ data frame-like object) that will be easy to use for mapping.
 state_ll <- read_table(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_ll.txt",
   col_names = c("state", "lat", "long")) |> 
-  filter(state != "US")
+  filter(state != "US") # Remove the row with China 
 ```
 
 ```{r}
-#| label: API-request
-# get the data from the api
-res <- GET(
-  "https://api.g7vrd.co.uk/v1/satellite-passes/25544/51.45/-2.5833.json?minelevation=70&hours=12")
+#| label: API-request-fn
+# Need a query for all latitude and longitudes in state_ll
+# and get the next three passes for each
+# Create a function to get the next three passes for each state capital in state_ll
+# Helper function to get pass times
+get_pass_times <- function(lat, long, minelevation = 30, hours = 48) {
+  url <- paste0("https://api.g7vrd.co.uk/v1/satellite-passes/25544/", lat,"/",
+                long,".json?minelevation=", minelevation,"&","hours=", hours)
+  res <- GET(url)
+  
+  # Check if the request was successful
+  if (status_code(res) == 200) {
+    return(content(res))
+  } else {
+    stop("Error: Unable to retrieve data from the API. Please check the URL or parameters.")
+  }
+  passtimes <- res$content |> 
+    rawToChar() |> 
+    fromJSON() |> 
+    data.frame() |> 
+    select(passes.tca) 
+  
+  t(passtimes)
+}
 
-res
+```
+
+```{r}
+# Function to pass in a dataframe to get all times the satellite passes
+#| label: get-all-passes-fn
+
+create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation = 70, hours = 12) {
+  # Create an empty dataframe
+  return_df <- data.frame(state = !!enquos(state_col),
+                          lat = !!enquos(lat_col),
+                          long = !!enquos(long_col))
+  
+  # Loop through each row of the dataframe to request the pass times one row at a time
+  lat <- df[[{{lat_col}}]]
+  long <- df[[{{long_col}}]]
+  for (i in 1:nrow(df)) {
+    # Get the latitude and longitude for the current state capital
+    cur_lat <- lat[i]
+    cur_long <- long[i]
+    
+    # Call the function to get the pass times
+    cur_passtimes <- get_pass_times(cur_lat, cur_long, minelevation, hours)
+    
+    # Add the pass times to the data frame
+    return_df$pass_times[[i]] <- cur_passtimes
+  }
+  
+  return(return_df)
+}
+
 ```
 
 
 ```{r}
-#| label: API-
+# Try it
+create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
+```
+
+
+```{r}
+# use the function
+#| label: get-passes
+
+for (i in 1:length(state_ll)) {
+  # Get the latitude and longitude for the current state capital
+  lat <- state_ll$lat[i]
+  long <- state_ll$long[i]
+  
+  # Call the function to get the pass times
+  pass_times <- get_pass_times(lat, long)
+  
+  # Add the pass times to the data frame
+  state_ll$pass_times[[i]] <- pass_times
+}
+```
+
+
+
+```{r}
+#| label: create-df
 # convert the json
 satellite <- res$content |> 
   rawToChar() |> 
   fromJSON()
+
+
+
+satellite_df <- list(satellite)  |> 
+  tibble(data = .) |> 
+  unnest_wider(data) |> 
+  unnest_longer(people) |> 
+  unnest_wider(people) %>% 
+  filter(craft == "ISS")
+
 ```
 
-
-
-```{r}
-# Turn satellite into a reasonable dataframe
-satellite_df <- satellite$passes |> 
-  as_tibble()
-```
 
 
 ## 2.
