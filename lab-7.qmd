@@ -1,7 +1,12 @@
 ---
 title: "Lab 7: Visualizing International Space Station Information via APIs"
 author: "Allen Choi and Hannah Pawig"
-format: html
+format:
+  html:
+    code-fold: show
+    code-summary: "Click to hide/show the code"
+    code-overflow: wrap
+    toc: true
 embed-resources: true
 editor: source
 ---
@@ -24,7 +29,8 @@ library(leaflet)
 
 ### Pass Times for U.S. State Captials
 
-1. Use the API to get the next **three** predicted pass times for all of the 
+## 1.
+Use the API to get the next **three** predicted pass times for all of the 
 U.S. state capitals. Organize all of this information into a nice data frame (or
 data frame-like object) that will be easy to use for mapping.
 
@@ -44,10 +50,16 @@ state_ll <- read_table(
 state_names <- read_delim(
   file = "https://people.sc.fsu.edu/~jburkardt/datasets/states/state_capitals_name.txt",
   delim = "  ",
-  col_names = c("state", "name"),
+  col_names = c("state", "name")
 )
 ```
 
+- We realized that the state_capitals_ll.txt file has a pair of coordinates in China, so we filtered that out.
+- We also filtered out the Alaska capital (Juneau) because the ISS doesn't orbit over Alaska.
+
+
+- Below we have the API request functions `get_pass_times` and `create_passtimes_df`. The first function is a helper function that makes one GET() request from the provided Pass Times API found on this [page]((https://g7vrd.co.uk/public-satellite-pass-rest-api).
+- The second function takes in a data frame, the latitude and longitude columns of that dataframe, and optionally the minimum elevation and hours lapsed. The `create_passtimes_df` function will loop through the dataframe and call the `get_pass_times` function for each row, storing the results in a new dataframe. The new dataframe will have columns for the state, latitude, longitude, and the three pass times for every capital in the provided dataframe (each row).
 ```{r}
 #| label: API-request-fn
 # Need a query for all latitude and longitudes in state_ll
@@ -74,15 +86,19 @@ get_pass_times <- function(lat, long, minelevation = 30, hours = 48) {
 
 ```
 
+
 ```{r}
 # Function to pass in a dataframe to get all times the satellite passes
 #| label: get-all-passes-fn
 
 create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation = 70, hours = 12) {
+  
+  # store the columns in respective variables
   state <- df |> select({{state_col}})
   lat <- df |> select({{lat_col}})
   long <- df |> select({{long_col}})
-  # Create an empty dataframe
+  
+  # Create the base dataframe, with columns for the 3 passes we'll get
   return_df <- data.frame(state = state,
                           lat = lat,
                           long = long,
@@ -92,10 +108,16 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
   # Loop through each row of the dataframe to request the pass times one row at a time
   for (i in 1:nrow(return_df)) {
     # Call the function to get the pass times
-    cur_pass_times <- get_pass_times(return_df[i, 2],
-                                     return_df[i, 3], minelevation, hours)
-    return_df[i, c(4, 5, 6)] <- cur_pass_times[, c(1, 2, 3)]
-    Sys.sleep(1) # get sys sleep so api dont get angry
+    cur_pass_times <- get_pass_times(lat = return_df[i, 2], # get the latitude for row i
+                                     long = return_df[i, 3], # get longitude for row i
+                                     minelevation, hours)
+    
+    # Add the pass times to the dataframe with tidyr
+    # and select the first three times
+    return_df[i, c(4, 5, 6)] <- cur_pass_times[,c(1,2,3)]
+            
+    
+    Sys.sleep(1) # get sys sleep so API doesn't get angry
   }
   
   return(return_df)
@@ -105,75 +127,68 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
 
 
 ```{r}
-# Try it
+#| label: create-passes-df
 a <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
 a
 ```
 
 ```{r}
+#| label: create-tidy-df
 final_dataset <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
 final_dataset <- final_dataset |> 
-  mutate(across(time1:time3, ~as_datetime(.x))) |> 
-  arrange(time1) |> 
+  mutate(across(time1:time3, ~as_datetime(.x))) |>  # convert passtimes to datetimes
+  arrange(time1) |>  # sort by first passes
   left_join(state_names, by = join_by(state == state))
 ```
 
 
 
-```{r}
-# use the function
-#| label: get-passes
-
-for (i in 1:length(state_ll)) {
-  # Get the latitude and longitude for the current state capital
-  lat <- state_ll$lat[i]
-  long <- state_ll$long[i]
-  
-  # Call the function to get the pass times
-  pass_times <- get_pass_times(lat, long)
-  
-  # Add the pass times to the data frame
-  state_ll$pass_times[[i]] <- pass_times
-}
-```
 
 
 
-```{r}
-#| label: create-df
-# convert the json
-satellite <- res$content |> 
-  rawToChar() |> 
-  fromJSON()
-
-
-
-satellite_df <- list(satellite)  |> 
-  tibble(data = .) |> 
-  unnest_wider(data) |> 
-  unnest_longer(people) |> 
-  unnest_wider(people) %>% 
-  filter(craft == "ISS")
-
-```
-
-
+### Mapping the Data
 
 ## 2.
+Map the U.S. state capitals using `leaflet`.
 
+
+## 3.
+Find an image of your choosing to use as the marker icon, that's relevant 
+for these data. Maybe a spaceship? 🚀 Or an astronaut? Or the moon?
+
+## 4. 
+The hover-over information for each marker should include the name of the
+state capital and the soonest predicted pass time. The click information should
+include the name of the state capital and all three predicted pass times. Make
+sure these times are in an easy-to-read format.
+
+
+## 5.
+Overlay lines on your map that connect the U.S. state capitals in order of
+pass times (essentially east to west) so that we can see the expected pass
+order.
+
+- We combined questions 2-5 in the following code chunk.
 ```{r}
+#| label: create-leaflet-map
+
+# icon: https://www.flaticon.com/free-icons/moon
 moon_icon <- makeIcon(
-  iconUrl = "https://media.istockphoto.com/id/1004728748/vector/moon-icon-flat-design.jpg?s=1024x1024&w=is&k=20&c=fYH6eM0A_xymXZ_ZdQ19AHhBPwsQyh4Cz8EMKjYaIlk=",
-  iconWidth = 30,
-  iconHeight = 30
+  iconUrl = "https://cdn-icons-png.flaticon.com/128/616/616465.png",
+  iconWidth = 20,
+  iconHeight = 20
 )
 
 final_dataset |> 
+  group_by(state) |> # group times by state 
   leaflet() |> 
   addTiles() |> 
   addPolylines(
     lng = final_dataset$long,
     lat = final_dataset$lat,
+    color = "#2ca25f",
+    opacity = 0.7,
+    weight = 5
   ) |> 
   addMarkers(
     lng = final_dataset$long,
@@ -187,8 +202,19 @@ final_dataset |>
                    final_dataset$time2, " <br> ",
                    "Third Time: <br> ",
                    final_dataset$time3),
-    label = paste0("State Capitol Name: ", " ", final_dataset$name, " <br> ",
-                   "Soonest possible time: ", final_dataset$time1)
+    label =  paste0("State Capitol Name: ", " ", final_dataset$name,
+                   "; Soonest possible time: ", final_dataset$time1)
   )
 
 ```
+
+```{r}
+
+final_dataset |> 
+  head(1) |> 
+  select(name, state)
+```
+
+- The first pass in the United States happens over Florida's capital, Tallahassee.
+- The polylines are plotted in order of the pass times, which was made possible because
+we sorted the `final_dataset` by the first pass time of each capital.
