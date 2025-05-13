@@ -146,7 +146,7 @@ final_dataset <- final_dataset |>
 
 
 
-### Mapping the Data
+### Mapping the Data, Drawing the Route of the ISS
 
 ## 2.
 Map the U.S. state capitals using `leaflet`.
@@ -215,6 +215,6 @@ final_dataset |>
   select(name, state)
 ```
 
-- The first pass in the United States happens over Florida's capital, Tallahassee.
+- The predicted first pass in the United States happens over Sacramento, CA (at the time this was made).
 - The polylines are plotted in order of the pass times, which was made possible because
 we sorted the `final_dataset` by the first pass time of each capital.
