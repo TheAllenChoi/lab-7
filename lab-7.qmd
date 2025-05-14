@@ -114,7 +114,17 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
     
     # Add the pass times to the dataframe with tidyr
     # and select the first three times
-    return_df[i, c(4, 5, 6)] <- cur_pass_times[,c(1,2,3)]
+    
+    # sometimes less than 3 times are available, need to handle that
+    if (length(cur_pass_times) == 1) {
+      cur_pass_times <- c(cur_pass_times[, 1], NA, NA)
+    } else if (length(cur_pass_times) == 2) {
+      cur_pass_times <- c(cur_pass_times[, c(1, 2)], NA)
+    } else {
+      cur_pass_times <- cur_pass_times[,c(1,2,3)]
+    }
+    
+    return_df[i, c(4, 5, 6)] <- cur_pass_times
             
     
     Sys.sleep(1) # get sys sleep so API doesn't get angry
@@ -125,16 +135,9 @@ create_passtimes_df <- function(df, state_col, lat_col, long_col, minelevation =
 
 ```
 
-
-```{r}
-#| label: create-passes-df
-a <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
-a
-```
-
 ```{r}
 #| label: create-tidy-df
-final_dataset <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 48)
+final_dataset <- create_passtimes_df(state_ll, state, lat, long, minelevation = 30, hours = 72)
 final_dataset <- final_dataset |> 
   mutate(across(time1:time3, ~as_datetime(.x))) |>  # convert passtimes to datetimes
   arrange(time1) |>  # sort by first passes
